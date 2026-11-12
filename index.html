@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <!--
+    viewport-fit=cover → permite usar env(safe-area-inset-*) en iPhone con notch.
+    interactive-widget=resizes-content → en Android, el teclado "encoge" el layout
+    (y por tanto 100dvh) en lugar de taparlo.
+  -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="theme-color" content="#070B14">
+  <meta name="description" content="U.A. Surprise — Terminal de acceso del Departamento de Héroes.">
+  <title>U.A. Surprise · Terminal de Acceso</title>
+
+  <!-- Tipografías: Orbitron (títulos), Rajdhani (HUD/botones), Share Tech Mono (consola) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap">
+
+  <!-- Precarga: el navegador empieza a descargar las imágenes antes de leer el CSS -->
+  <link rel="preload" as="image" href="assets/images/ua-logo.png">
+  <link rel="preload" as="image" href="assets/images/deku.png">
+
+  <link rel="stylesheet" href="style.css">
+  <!-- defer: el script se ejecuta cuando el HTML ya está parseado (no bloquea el render) -->
+  <script src="script.js" defer></script>
+</head>
+
+<body>
+  <!-- ═══════════════ CAPAS AMBIENTALES (decorativas) ═══════════════ -->
+  <div class="ambient" aria-hidden="true">
+    <div class="ambient__glow"></div>
+    <div class="ambient__grid"></div>
+    <div class="ambient__vignette"></div>
+  </div>
+
+  <!-- Destello global usado en las transiciones entre pantallas -->
+  <div class="flash" id="flash" aria-hidden="true"></div>
+
+  <!-- ═══════════════ SUB-ESTADO 1.A · BOOT OVERLAY ═══════════════ -->
+  <div class="boot" id="boot" role="status" aria-label="Cargando terminal de la U.A.">
+    <div class="boot__inner">
+      <!-- .img-slot: contenedor que muestra un fallback de texto si la imagen falla -->
+      <div class="boot__logo img-slot">
+        <img src="assets/images/ua-logo.png" alt="Emblema de la Academia U.A." width="640" height="427" decoding="async">
+        <span class="img-fallback logo-fallback" aria-hidden="true">U.A.</span>
+      </div>
+
+      <!-- data-at = momento (0 → 1 del progreso) en el que aparece cada línea -->
+      <ul class="boot__lines">
+        <li class="boot__line" data-at="0.04">&gt; CONECTANDO CON SERVIDOR CENTRAL DE LA U.A...</li>
+        <li class="boot__line" data-at="0.36">&gt; ENLACE QR RECONOCIDO.</li>
+        <li class="boot__line" data-at="0.68">&gt; CARGANDO TERMINAL DE ASPIRANTE...</li>
+      </ul>
+
+      <div class="boot__bar"><span class="boot__bar-fill" id="boot-fill"></span></div>
+      <p class="boot__pct"><span id="boot-pct">000</span>%</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════ CONTROL DE AUDIO (global) ═══════════════ -->
+  <button class="audio-toggle" id="audio-toggle" type="button" aria-pressed="false" aria-label="Activar o desactivar audio">
+    <span class="audio-toggle__dot" aria-hidden="true"></span>
+    <span>AUDIO: [<span id="audio-state">OFF</span>]</span>
+  </button>
+
+  <!-- ═══════════════ APLICACIÓN (SPA) ═══════════════
+       Cada pantalla es un <section class="stage" data-stage="N">.
+       goToStage(N) en script.js muestra una y oculta las demás. -->
+  <main class="app" id="app">
+
+    <!-- ─────────── PANTALLA 1 · TERMINAL DE ACCESO ─────────── -->
+    <section class="stage is-active" data-stage="1" aria-labelledby="hud-title">
+      <div class="access">
+
+        <!-- ZONA IZQUIERDA · CONSOLA HUD -->
+        <div class="access__console">
+          <div class="hud" id="hud">
+            <div class="hud__glow" aria-hidden="true"></div>
+
+            <div class="hud__panel">
+              <!-- Detalles "mecha": esquinas cortadas y brackets -->
+              <span class="hud__cut hud__cut--tl" aria-hidden="true"></span>
+              <span class="hud__cut hud__cut--br" aria-hidden="true"></span>
+              <span class="hud__bracket hud__bracket--tr" aria-hidden="true"></span>
+              <span class="hud__bracket hud__bracket--bl" aria-hidden="true"></span>
+              <span class="hud__scan" aria-hidden="true"></span>
+
+              <header class="hud__header">
+                <div class="hud__logo img-slot">
+                  <img src="assets/images/ua-logo.png" alt="Emblema U.A." width="640" height="427" decoding="async">
+                  <span class="img-fallback logo-fallback" aria-hidden="true">U.A.</span>
+                </div>
+                <div class="hud__heading">
+                  <p class="hud__eyebrow">U.A. HIGH · TERMINAL 01-A</p>
+                  <h1 class="hud__title" id="hud-title">
+                    DEPARTAMENTO DE HÉROES <span class="hud__sep">//</span> SISTEMA DE ADMISIÓN
+                  </h1>
+                </div>
+              </header>
+
+              <!-- Indicador de estado (cambia en el sub-estado 1.C) -->
+              <div class="hud__status">
+                <span class="hud__status-dot" aria-hidden="true"></span>
+                <p class="hud__status-text" id="hud-status" role="status">ESPERANDO CREDENCIAL // NIVEL: ASPIRANTE</p>
+              </div>
+
+              <!-- Pantalla de texto. La versión visual se escribe letra a letra (aria-hidden);
+                   la versión para lectores de pantalla (.sr-only) recibe el texto completo de una vez. -->
+              <div class="hud__screen">
+                <p class="sr-only" id="hud-message-sr" aria-live="polite"></p>
+                <p class="hud__message" aria-hidden="true"><span class="hud__prompt">&gt;</span> <span id="hud-message-text">Credencial física detectada. Ingrese su nombre de aspirante para desencriptar el expediente asignado.</span><span class="hud__cursor"></span></p>
+              </div>
+
+              <!-- SUB-ESTADO 1.B · Formulario de ingreso (se colapsa en 1.C) -->
+              <div class="collapsible" id="form-wrap">
+                <div class="collapsible__inner">
+                  <form class="access-form" id="access-form" novalidate autocomplete="off">
+                    <label class="access-form__label" for="aspirant-name">ID // NOMBRE DE ASPIRANTE</label>
+                    <input
+                      class="access-form__input"
+                      id="aspirant-name"
+                      name="ua-aspirant-id"
+                      type="text"
+                      placeholder="Nombre de aspirante..."
+                      maxlength="40"
+                      autocomplete="off"
+                      autocorrect="off"
+                      autocapitalize="words"
+                      spellcheck="false"
+                      enterkeyhint="go"
+                      data-lpignore="true"
+                      data-1p-ignore
+                      aria-describedby="name-hint">
+                    <p class="access-form__hint" id="name-hint" aria-live="assertive"></p>
+                    <button class="btn btn--hud" id="link-btn" type="submit">
+                      <span class="btn__label">VINCULAR EXPEDIENTE</span>
+                    </button>
+                  </form>
+                </div>
+              </div>
+
+              <!-- SUB-ESTADO 1.C · Botón de verificación (aparece tras el mensaje personal) -->
+              <div class="collapsible is-collapsed" id="verify-wrap" aria-hidden="true" inert>
+                <div class="collapsible__inner">
+                  <div class="ofa-halo">
+                    <!-- Destellos eléctricos (se animan al hacer hover) -->
+                    <svg class="sparks" viewBox="0 0 200 60" preserveAspectRatio="none" aria-hidden="true">
+                      <polyline class="spark spark--1" points="8,4 22,0 30,7 44,1 54,6" />
+                      <polyline class="spark spark--2" points="140,58 152,52 162,60 176,53 190,58" />
+                      <polyline class="spark spark--3" points="196,14 200,22 194,30 199,40" />
+                      <polyline class="spark spark--4" points="4,40 0,32 6,24 1,16" />
+                      <polyline class="spark spark--5" points="96,0 104,6 112,0 122,5" />
+                    </svg>
+                    <button class="btn btn--ofa" id="verify-btn" type="button">
+                      <span class="btn__label">INICIAR VERIFICACIÓN DE IDENTIDAD ⚡</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <footer class="hud__footer" aria-hidden="true">
+                <span>SEC-LVL 01 · CIFRADO ACTIVO</span>
+                <span id="hud-clock">--:--:--</span>
+              </footer>
+            </div>
+          </div>
+        </div>
+
+        <!-- ZONA DERECHA · ESCENARIO DE DEKU -->
+        <div class="access__hero" id="hero">
+          <div class="hero__ring" aria-hidden="true"></div>
+          <div class="hero__aura" aria-hidden="true"></div>
+
+          <figure class="hero__figure img-slot">
+            <img class="hero__deku" src="assets/images/deku.png" alt="Izuku Midoriya sonriendo con el uniforme de la U.A." width="900" height="1149" decoding="async">
+            <figcaption class="img-fallback deku-fallback" aria-hidden="true">
+              <span>SEÑAL VISUAL</span><span>NO DISPONIBLE</span>
+            </figcaption>
+          </figure>
+
+          <!-- Partículas de energía (dibujadas con JS en un canvas) -->
+          <canvas class="hero__particles" id="particles" aria-hidden="true"></canvas>
+
+          <p class="hero__tag" aria-hidden="true">
+            ESTUDIANTE 1-A<br>SINCRONÍA OFA: <span id="ofa-sync">08</span>%
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ─────────── PANTALLA 2 (próximamente) ───────────
+         Cuando la construyamos, se añadirá aquí:
+         <section class="stage" data-stage="2"> ... </section>
+         y goToStage(2) la mostrará automáticamente. -->
+
+  </main>
+</body>
+</html>
